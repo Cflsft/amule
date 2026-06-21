@@ -18,8 +18,7 @@ cmake .. \
   -DBUILD_REMOTEGUI=OFF \
   -DBUILD_ALC=OFF \
   -DBUILD_ALCC=OFF \
-  -DENABLE_NLS=OFF \
-  -DENABLE_IO_URING=ON
+  -DENABLE_NLS=OFF 
 
 echo "🛠️ Compilando aMule..."
 make -j$(nproc)
