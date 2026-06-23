@@ -350,6 +350,7 @@ public:
 	{
 		return (iPart < m_downPartStatus.size()) ? m_downPartStatus.get(iPart) : 0;
 	}
+	bool HasUsefulBlocksFor(CUpDownClient *other) const;
 	bool IsUpPartAvailable(uint16 iPart) const
 	{
 		return (iPart < m_upPartStatus.size()) ? m_upPartStatus.get(iPart) : 0;
