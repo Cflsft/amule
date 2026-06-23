@@ -661,7 +661,7 @@ void CUpDownClient::SendBlockRequests()
 			theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
 			//			if (slower_client != this) {
 			//				printf("Dropped client %p to allow client %p to
-			// download\n",slower_client, this);
+			//download\n",slower_client, this);
 			//			}
 			slower_client->ClearDownloadBlockRequests();
 			slower_client->SendPacket(packet, true, true);
@@ -691,11 +691,6 @@ void CUpDownClient::SendBlockRequests()
 					m_PendingBlocks_list.push_back(pblock);
 				}
 			} else {
-				// Original code assumed this could never happen:
-				// // WTF, we just freed blocks.
-				// wxFAIL_MSG("No free blocks to request after freeing some blocks");
-				// return;
-
 				// It's possible the freed blocks were not available on our source.
 				// Just drop ourselves gracefully instead of crashing.
 				if (!GetSentCancelTransfer()) {
@@ -1271,8 +1266,7 @@ float CUpDownClient::CalculateKBpsDown()
 			kBpsDown = (kBpsDown * (tAverage - dt) + kBpsDownCur * dt) / tAverage;
 		}
 		// AddDebugLogLineN(logLocalClient, CFormat("CalculateKBpsDown %p kbps %.1f kbpsCur %.1f dt
-		// %.3f rcv %d ") 			% this % kBpsDown  % kBpsDownCur % dt %
-		// bytesReceivedCycle);
+		// %.3f rcv %d ") 			% this % kBpsDown  % kBpsDownCur % dt % bytesReceivedCycle);
 		bytesReceivedCycle = 0;
 		msReceivedPrev = msCur;
 	}
