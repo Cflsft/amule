@@ -52,3 +52,5 @@ packaging/windows/installer_strings_generated.nsh
 /build-windows-*/
 /dist/
 /run_msys.sh
+build_mono/
+pupnp/
