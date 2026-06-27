@@ -46,3 +46,9 @@ packaging/windows/installer_strings_generated.nsh
 .aider*
 
 .cache/
+
+# MSYS2 Windows build output
+/amule-portable-*/
+/build-windows-*/
+/dist/
+/run_msys.sh

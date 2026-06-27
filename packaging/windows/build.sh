@@ -96,15 +96,16 @@ build() {
         -DCMAKE_C_COMPILER_LAUNCHER= \
         -DCMAKE_CXX_COMPILER_LAUNCHER= \
         -DBUILD_MONOLITHIC=YES \
-        -DBUILD_REMOTEGUI=YES \
-        -DBUILD_DAEMON=YES \
-        -DBUILD_AMULECMD=YES \
-        -DBUILD_ED2K=YES \
-        -DBUILD_WEBSERVER=YES \
-        -DBUILD_CAS=YES \
-        -DBUILD_WXCAS=YES \
-        -DBUILD_ALC=YES \
-        -DBUILD_ALCC=YES \
+        -DBUILD_UPNP=YES \
+        -DBUILD_REMOTEGUI=NO \
+        -DBUILD_DAEMON=NO \
+        -DBUILD_AMULECMD=NO \
+        -DBUILD_ED2K=NO \
+        -DBUILD_WEBSERVER=NO \
+        -DBUILD_CAS=NO \
+        -DBUILD_WXCAS=NO \
+        -DBUILD_ALC=NO \
+        -DBUILD_ALCC=NO \
         -DBUILD_TESTING=NO \
         -DENABLE_IP2COUNTRY=YES
 
