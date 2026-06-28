@@ -657,18 +657,20 @@ void CUpDownClient::SendBlockRequests()
 		}
 
 		if (slower_client != this) {
-			// Graceful eviction: keep first block in flight, do not send OP_CANCELTRANSFER,
-			// and do not change state immediately so the slow client can finish its block.
 			if (!slower_client->GetSentCancelTransfer()) {
-				slower_client->ClearDownloadBlockRequests(true);
+				CPacket *packet = new CPacket(OP_CANCELTRANSFER, 0, OP_EDONKEYPROT);
+				theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
+				slower_client->ClearDownloadBlockRequests(true); // bAddGaps = true
+				slower_client->SendPacket(packet, true, true);
 				slower_client->SetSentCancelTransfer(1);
 			}
+			slower_client->SetDownloadState(DS_NONEEDEDPARTS);
 		} else {
 			// Hard drop of ourselves: send cancel transfer and transition state.
 			if (!GetSentCancelTransfer()) {
 				CPacket *packet = new CPacket(OP_CANCELTRANSFER, 0, OP_EDONKEYPROT);
 				theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
-				ClearDownloadBlockRequests();
+				ClearDownloadBlockRequests(false); // bAddGaps = false
 				SendPacket(packet, true, true);
 				SetSentCancelTransfer(1);
 			}
@@ -679,7 +681,7 @@ void CUpDownClient::SendBlockRequests()
 		if (slower_client != this) {
 			// Re-request freed blocks.
 			AddDebugLogLineN(logLocalClient,
-				"Local Client: graceful eviction (faster source eager to transfer) to " +
+				"Local Client: safe eviction (faster source eager to transfer) to " +
 					slower_client->GetFullIP());
 			wxASSERT(m_DownloadBlocks_list.empty());
 			wxASSERT(m_PendingBlocks_list.empty());

@@ -118,6 +118,7 @@ class CPartFile : public CKnownFile
 {
 	friend class CPartFileWriteThread;
 	friend class CPartFileHashThread;
+	friend class CUpDownClient;
 
 public:
 	typedef std::list<Requested_Block_Struct *> CReqBlockPtrList;
