@@ -1213,7 +1213,7 @@ void CUpDownClient::ProcessMuleCommentPacket(const uint8_t *pachPacket, uint32 n
 	m_reqfile->UpdateFileRatingCommentAvail();
 }
 
-void CUpDownClient::ClearDownloadBlockRequests()
+void CUpDownClient::ClearDownloadBlockRequests(bool bKeepFirst)
 {
 	{
 		std::list<Requested_Block_Struct *>::iterator it = m_DownloadBlocks_list.begin();
@@ -1232,7 +1232,10 @@ void CUpDownClient::ClearDownloadBlockRequests()
 
 	{
 		std::list<Pending_Block_Struct *>::iterator it = m_PendingBlocks_list.begin();
-		for (; it != m_PendingBlocks_list.end(); ++it) {
+		if (bKeepFirst && it != m_PendingBlocks_list.end()) {
+			++it;
+		}
+		while (it != m_PendingBlocks_list.end()) {
 			Pending_Block_Struct *pending = *it;
 
 			if (m_reqfile) {
@@ -1248,9 +1251,8 @@ void CUpDownClient::ClearDownloadBlockRequests()
 			}
 
 			delete pending;
+			it = m_PendingBlocks_list.erase(it);
 		}
-
-		m_PendingBlocks_list.clear();
 	}
 }
 

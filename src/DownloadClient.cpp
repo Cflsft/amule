@@ -656,24 +656,30 @@ void CUpDownClient::SendBlockRequests()
 			slower_client = this;
 		}
 
-		if (!slower_client->GetSentCancelTransfer()) {
-			CPacket *packet = new CPacket(OP_CANCELTRANSFER, 0, OP_EDONKEYPROT);
-			theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
-			//			if (slower_client != this) {
-			//				printf("Dropped client %p to allow client %p to
-			//download\n",slower_client, this);
-			//			}
-			slower_client->ClearDownloadBlockRequests();
-			slower_client->SendPacket(packet, true, true);
-			slower_client->SetSentCancelTransfer(1);
+		if (slower_client != this) {
+			// Graceful eviction: keep first block in flight, do not send OP_CANCELTRANSFER,
+			// and do not change state immediately so the slow client can finish its block.
+			if (!slower_client->GetSentCancelTransfer()) {
+				slower_client->ClearDownloadBlockRequests(true);
+				slower_client->SetSentCancelTransfer(1);
+			}
+		} else {
+			// Hard drop of ourselves: send cancel transfer and transition state.
+			if (!GetSentCancelTransfer()) {
+				CPacket *packet = new CPacket(OP_CANCELTRANSFER, 0, OP_EDONKEYPROT);
+				theStats::AddUpOverheadFileRequest(packet->GetPacketSize());
+				ClearDownloadBlockRequests();
+				SendPacket(packet, true, true);
+				SetSentCancelTransfer(1);
+			}
+			SetDownloadState(DS_NONEEDEDPARTS);
+			return;
 		}
-
-		slower_client->SetDownloadState(DS_NONEEDEDPARTS);
 
 		if (slower_client != this) {
 			// Re-request freed blocks.
 			AddDebugLogLineN(logLocalClient,
-				"Local Client: OP_CANCELTRANSFER (faster source eager to transfer) to " +
+				"Local Client: graceful eviction (faster source eager to transfer) to " +
 					slower_client->GetFullIP());
 			wxASSERT(m_DownloadBlocks_list.empty());
 			wxASSERT(m_PendingBlocks_list.empty());

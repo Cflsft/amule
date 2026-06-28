@@ -216,7 +216,7 @@ public:
 	bool IsHybrid() const { return m_bIsHybrid; }
 	uint32 GetCompatibleClient() const { return m_byCompatibleClient; }
 
-	void ClearDownloadBlockRequests();
+	void ClearDownloadBlockRequests(bool bKeepFirst = false);
 	void RequestSharedFileList();
 	void ProcessSharedFileList(const uint8_t *pachPacket, uint32 nSize, wxString &pszDirectory);
 	void SendSharedDirectories();
