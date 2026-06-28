@@ -11,6 +11,7 @@ cd build
 
 echo "⚙️ Ejecutando CMake..."
 cmake .. \
+  -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_DAEMON=ON \
   -DBUILD_AMULECMD=ON \
   -DBUILD_WEBSERVER=ON \
