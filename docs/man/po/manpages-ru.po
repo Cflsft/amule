@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: manpages-ru\n"
 "POT-Creation-Date: 2026-09-24 19:19+0100\n"
-"PO-Revision-Date: 2026-09-24 19:19+0000\n"
+"PO-Revision-Date: 2026-09-25 11:30+0000\n"
 "Last-Translator: Sebastiano Pistore <SebastianoPistore.info@protonmail.ch>\n"
 "Language-Team: Russian <LL@li.org>\n"
 "Language: ru\n"
@@ -134,12 +134,12 @@ msgstr "Включить или отключить запуск aMule при в�
 #. type: Plain text
 #: amule.1.in amuled.1.in amulegui.1.in
 msgid "Enable or disable aMule as the current user's default handler for ed2k:// and magnet: links, then exit.  I<E<lt>valueE<gt>> is B<on> or B<off> for both kinds of link, or B<ed2k:on>, B<ed2k:off>, B<magnet:on> or B<magnet:off> for one of them.  The OS-specific store is selected automatically: Windows registry, macOS LaunchServices, Linux XDG I<mimeapps.list>."
-msgstr ""
+msgstr "Включает или отключает aMule как обработчик ссылок ed2k:// и magnet: по умолчанию для текущего пользователя, затем завершает работу. I<E<lt>valueE<gt>> — это B<on> или B<off> для обоих типов ссылок, либо B<ed2k:on>, B<ed2k:off>, B<magnet:on> или B<magnet:off> для одного из них. Хранилище выбирается автоматически в зависимости от ОС: реестр Windows, macOS LaunchServices, Linux XDG I<mimeapps.list>."
 
 #. type: Plain text
 #: amule.1.in amuled.1.in amulegui.1.in
 msgid "Enable or disable aMule as the current user's handler for I<.emulecollection> files, then exit."
-msgstr ""
+msgstr "Включает или отключает aMule как обработчик файлов I<.emulecollection> для текущего пользователя, затем завершает работу."
 
 #. type: TP
 #: amule.1.in amuled.1.in
@@ -941,48 +941,41 @@ msgstr "Включить или отключить запуск amulegui при 
 
 #. type: Plain text
 #: amulegui.1.in
-#, fuzzy
-#| msgid "Adds an eD2k-link, or every link in an eMule collection file, to the core."
 msgid "Sends an eD2k-link, or every link in an eMule collection file, to the connected core."
-msgstr "Добавляет eD2k-ссылку или все ссылки из файла коллекции eMule в ядро."
+msgstr "Отправляет ссылку eD2k или все ссылки из файла коллекции eMule подключённому ядру."
 
 #. type: TP
 #: amulegui.1.in
-#, fuzzy, no-wrap
-#| msgid "~/.aMule/remote.conf"
+#, no-wrap
 msgid "I<~/.aMule/remote.conf>"
-msgstr "~/.aMule/remote.conf"
+msgstr "I<~/.aMule/remote.conf>"
 
 #. type: Plain text
 #: amulegui.1.in
 msgid "Settings, including the core to connect to."
-msgstr ""
+msgstr "Настройки, включая ядро для подключения."
 
 #. type: TP
 #: amulegui.1.in
-#, fuzzy, no-wrap
-#| msgid "~/.aMule/remote.conf"
+#, no-wrap
 msgid "I<~/.aMule/remotelogfile>"
-msgstr "~/.aMule/remote.conf"
+msgstr "I<~/.aMule/remotelogfile>"
 
 #. type: Plain text
 #: amulegui.1.in
-#, fuzzy
-#| msgid "Show log."
 msgid "The log."
-msgstr "Показать журнал."
+msgstr "Журнал."
 
 #. type: TP
 #: amulegui.1.in
-#, fuzzy, no-wrap
-#| msgid "~/.aMule/ED2KLinks"
+#, no-wrap
 msgid "I<~/.aMule/ED2KLinks>"
-msgstr "~/.aMule/ED2KLinks"
+msgstr "I<~/.aMule/ED2KLinks>"
 
 #. type: Plain text
 #: amulegui.1.in
 msgid "Links passed on the command line, waiting to be sent to the core."
-msgstr ""
+msgstr "Ссылки, переданные в командной строке, ожидающие отправки ядру."
 
 #. type: Plain text
 #: amulegui.1.in
