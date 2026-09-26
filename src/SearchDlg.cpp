@@ -582,6 +582,9 @@ void CSearchDlg::OnSearchTypeChanged(wxCommandEvent &WXUNUSED(evt))
 
 void CSearchDlg::ResetResultViews()
 {
+	// A restarted daemon restores results, not the running searches behind them.
+	// Discard the previous session's progress before its first new poll arrives.
+	m_searchProgress.clear();
 	for (size_t i = 0; i < m_notebook->GetPageCount(); ++i) {
 		CSearchListCtrl *page = dynamic_cast<CSearchListCtrl *>(m_notebook->GetPage(i));
 		if (page == nullptr) {
@@ -589,6 +592,7 @@ void CSearchDlg::ResetResultViews()
 		}
 		// Re-show the id the tab already has: same tab, same search, but the model reloads from
 		// the index rather than keeping items that no longer point at anything.
+		page->ClearSearchRequest();
 		page->ShowResults(page->GetSearchId());
 	}
 }
@@ -629,7 +633,7 @@ wxUIntPtr CSearchDlg::GetVisibleSearchId()
 
 void CSearchDlg::ApplyProgressToBar(uint32 status)
 {
-	const bool finished = (status == 0xffff || status == 0xfffe);
+	const bool finished = !IsRunningSearchStatus(status);
 	if (finished) {
 		// Finished (ed2k or Kad): reset the bar.
 		m_progressbar->SetValue(0);
@@ -664,7 +668,7 @@ void CSearchDlg::UpdateSearchProgress(uint32 searchID, uint32 status)
 	// Cache per-tab so a tab switch can refresh the bar instantly.
 	m_searchProgress[searchID] = status;
 
-	if (status == 0xffff || status == 0xfffe) {
+	if (!IsRunningSearchStatus(status)) {
 		// Search finished: clear this tab's Kad "!" marker (a no-op for an ed2k tab, which has
 		// none) regardless of which tab is visible, so each tab clears independently as its own
 		// search completes.
@@ -698,7 +702,8 @@ bool CSearchDlg::HasRunningEd2kSearch() const
 		}
 		// Kad searches carry their own IDs and run in parallel, so a running
 		// one is not in the way of a new ed2k search.
-		if (theApp->searchlist->IsKadSearch((uint32_t)sid)) {
+		if ((ctrl->GetSearchRequest() && ctrl->GetSearchRequest()->GetType() == KadSearch) ||
+			theApp->searchlist->IsKadSearch((uint32_t)sid)) {
 			continue;
 		}
 
@@ -706,19 +711,19 @@ bool CSearchDlg::HasRunningEd2kSearch() const
 		// running percent. Same vocabulary in both builds, different source.
 		uint32 status;
 #ifdef CLIENT_GUI
-		// Remote GUI: the daemon pushes the sentinel through UpdateSearchProgress, which caches
-		// it per tab. A tab with no entry is one nothing has reported on this session -- a search
-		// restored from disk at startup -- so it is finished, not running. Treating the absence
-		// as "running" would prompt on every first search of a session that had stored results.
-		const std::map<wxUIntPtr, uint32>::const_iterator it = m_searchProgress.find(sid);
+		// Only this session's submitted requests can be running before the first poll.
+		const auto it = m_searchProgress.find(sid);
 		if (it == m_searchProgress.end()) {
+			if (ctrl->GetSearchRequest()) {
+				return true;
+			}
 			continue;
 		}
 		status = it->second;
 #else
 		status = theApp->searchlist->GetSearchBarStatusById(sid);
 #endif
-		if (status != 0xffff && status != 0xfffe) {
+		if (IsRunningSearchStatus(status)) {
 			return true;
 		}
 	}
@@ -1006,40 +1011,89 @@ void CSearchDlg::OnBnClickedStart(wxCommandEvent &WXUNUSED(evt))
 		return;
 	}
 
-	// Starting a second ed2k search finalises the one in flight (see HasRunningEd2kSearch for
-	// why the protocol forces that), and until now it happened silently: the first tab's
-	// progress bar simply cleared, which reads exactly like a search that finished normally.
-	// Ask first, so stopping it is the user's decision. Only ed2k-over-ed2k: starting a Kad
-	// search alongside a running ed2k one is fine, and so is the reverse.
-	const int newType = GetSelectedSearchTypeCanonical();
-	if ((newType == LocalSearch || newType == GlobalSearch) && HasRunningEd2kSearch()) {
-		const int answer =
-			wxMessageBox(_("An eD2k search is still running. Starting a new one will stop it, "
-				       "because the eD2k protocol allows only one search at a time.\n\n"
-				       "Results already found are kept; only new ones stop arriving.\n\n"
-				       "Start the new search anyway?"),
-				_("Search in progress"),
-				wxYES_NO | wxCENTRE | wxICON_QUESTION,
-				this);
-		if (answer != wxYES) {
-			return;
-		}
-	}
-
 	// Debounce accidental double-clicks, but keep it short so multi-search
 	// users can fire several searches (e.g. global + Kad) back-to-back.
 	uint64 now = GetTickCount64();
 	if ((now - m_last_search_time) > 500) {
 		m_last_search_time = now;
-		// Stop previous ED2K search state only -- the server has a single in-flight search packet
-		// per session and m_searchPacket has to be reset. Do NOT stop a previous Kad search: the
-		// Kad data layer supports multiple concurrent searches keyed by target hash, and stopping
-		// the previous one immediately deletes its CSearch, which strips the "!" tab indicator
-		// and halts result delivery. An unconditional stop here is why starting a second Kad
-		// search appeared to cancel the first.
-		theApp->searchlist->StopSearch(/*globalOnly=*/true);
+		const auto params = ReadSearchParams(false);
+		if (params.searchString.IsEmpty() || TryReuseSearch(params)) {
+			return;
+		}
+
+		// Starting a second ed2k search finalises the one in flight (see HasRunningEd2kSearch for
+		// why the protocol forces that), and until now it happened silently: the first tab's
+		// progress bar simply cleared, which reads exactly like a search that finished normally.
+		// Ask first, so stopping it is the user's decision. Only ed2k-over-ed2k: starting a Kad
+		// search alongside a running ed2k one is fine, and so is the reverse.
+		const int newType = GetSelectedSearchTypeCanonical();
+		if ((newType == LocalSearch || newType == GlobalSearch) && HasRunningEd2kSearch()) {
+			const int answer = wxMessageBox(
+				_("An eD2k search is still running. Starting a new one will stop it, "
+				  "because the eD2k protocol allows only one search at a time.\n\n"
+				  "Results already found are kept; only new ones stop arriving.\n\n"
+				  "Start the new search anyway?"),
+				_("Search in progress"),
+				wxYES_NO | wxCENTRE | wxICON_QUESTION,
+				this);
+			if (answer != wxYES) {
+				return;
+			}
+		}
+
+		StopSearchForNewRequest();
 		StartNewSearch();
 	}
+}
+
+bool CSearchDlg::TryReuseSearch(const CSearchList::CSearchParams &params)
+{
+	const CSearchRequest request(GetSelectedSearchTypeCanonical(), params);
+	std::vector<CSearchReuseCandidate> pages;
+	for (size_t i = 0; i < m_notebook->GetPageCount(); ++i) {
+		const auto *page = dynamic_cast<const CSearchListCtrl *>(m_notebook->GetPage(i));
+		CSearchReuseCandidate candidate;
+		if (page) {
+			candidate.request = page->GetSearchRequest();
+#ifdef CLIENT_GUI
+			const auto progress = m_searchProgress.find(page->GetSearchId());
+			if (progress != m_searchProgress.end()) {
+				candidate.progress = progress->second;
+			}
+#else
+			candidate.progress =
+				theApp->searchlist->GetSearchLifecycleStateById(page->GetSearchId()) ==
+						CSearchList::SEARCH_LIFECYCLE_RUNNING
+					? theApp->searchlist->GetSearchBarStatusById(page->GetSearchId())
+					: 0xffff;
+#endif
+		}
+		pages.push_back(candidate);
+	}
+	const size_t index = FindReusableSearch(pages, request);
+	if (index == pages.size()) {
+		return false;
+	}
+	m_notebook->SetSelection(index);
+	return true;
+}
+
+void CSearchDlg::ClearSearchRequests(bool ed2kOnly)
+{
+	for (size_t i = 0; i < m_notebook->GetPageCount(); ++i) {
+		auto *page = dynamic_cast<CSearchListCtrl *>(m_notebook->GetPage(i));
+		if (page && (!ed2kOnly || (page->GetSearchRequest() &&
+						  page->GetSearchRequest()->GetType() != KadSearch))) {
+			page->ClearSearchRequest();
+		}
+	}
+}
+
+void CSearchDlg::StopSearchForNewRequest()
+{
+	// Invalidate before stopping: remote progress can still describe the old search.
+	ClearSearchRequests(true);
+	theApp->searchlist->StopSearch(/*globalOnly=*/true);
 }
 
 void CSearchDlg::OnFieldChanged(wxEvent &WXUNUSED(evt))
@@ -1269,8 +1323,15 @@ void CSearchDlg::OnBnClickedStop(wxCommandEvent &WXUNUSED(evt))
 	// the visible tab's own id.
 	wxUIntPtr sid = GetVisibleSearchId();
 	if (sid) {
+		// Remote progress may still say "running" until the STOP is processed.
+		// Clear the request permanently so even a delayed progress reply cannot
+		// make this stopped tab absorb the user's next identical search.
+		if (CSearchListCtrl *page = GetSearchList(sid)) {
+			page->ClearSearchRequest();
+		}
 		theApp->searchlist->StopSearchById(sid);
 	} else {
+		ClearSearchRequests(false);
 		theApp->searchlist->StopSearch();
 	}
 	ResetControls();
@@ -1391,12 +1452,8 @@ void CSearchDlg::OnBnClickedClear(wxCommandEvent &WXUNUSED(ev))
 	FindWindow(IDC_SEARCHMORE)->Enable(false);
 }
 
-void CSearchDlg::StartNewSearch()
+CSearchList::CSearchParams CSearchDlg::ReadSearchParams(bool showWarning)
 {
-	FindWindow(IDC_STARTS)->Disable();
-	FindWindow(IDC_SDOWNLOAD)->Disable();
-	FindWindow(IDC_CANCELS)->Enable();
-
 	CSearchList::CSearchParams params;
 
 	params.searchString = CastChild(IDC_SEARCHNAME, wxTextEntry)->GetValue();
@@ -1404,10 +1461,8 @@ void CSearchDlg::StartNewSearch()
 	params.searchString.Trim(false);
 
 	if (params.searchString.IsEmpty()) {
-		return;
+		return params;
 	}
-
-	RecordSearchHistory(params.searchString);
 
 	if (CastChild(IDC_EXTENDEDSEARCHCHECK, wxCheckBox)->GetValue()) {
 		params.extension = CastChild(IDC_EDITSEARCHEXTENSION, wxTextCtrl)->GetValue();
@@ -1424,11 +1479,13 @@ void CSearchDlg::StartNewSearch()
 			(uint64_t)(CastChild(IDC_SPINSEARCHMAX, wxSpinCtrl)->GetValue()) * (uint64_t)sizemax;
 
 		if ((params.maxSize < params.minSize) && (params.maxSize)) {
-			wxMessageDialog dlg(this,
-				_("Min size must be smaller than max size. Max size ignored."),
-				_("Search warning"),
-				wxOK | wxCENTRE | wxICON_INFORMATION);
-			dlg.ShowModal();
+			if (showWarning) {
+				wxMessageDialog dlg(this,
+					_("Min size must be smaller than max size. Max size ignored."),
+					_("Search warning"),
+					wxOK | wxCENTRE | wxICON_INFORMATION);
+				dlg.ShowModal();
+			}
 
 			params.maxSize = 0;
 		}
@@ -1468,6 +1525,17 @@ void CSearchDlg::StartNewSearch()
 		}
 	}
 
+	return params;
+}
+
+void CSearchDlg::StartNewSearch()
+{
+	auto params = ReadSearchParams(true);
+	if (params.searchString.IsEmpty()) {
+		return;
+	}
+	RecordSearchHistory(params.searchString);
+
 	SearchType search_type = KadSearch;
 
 	// Canonical order (0 = Local, 1 = Global, 2 = Kad), normalised for the
@@ -1489,6 +1557,11 @@ void CSearchDlg::StartNewSearch()
 		wxFAIL;
 		break;
 	}
+
+	const CSearchRequest request(search_type, params);
+	FindWindow(IDC_STARTS)->Disable();
+	FindWindow(IDC_SDOWNLOAD)->Disable();
+	FindWindow(IDC_CANCELS)->Enable();
 
 #ifdef CLIENT_GUI
 	// Remote GUI: real_id is an OPTIMISTIC placeholder tab id. The tab is created immediately
@@ -1526,6 +1599,9 @@ void CSearchDlg::StartNewSearch()
 		OnStartRejected(real_id, error);
 	} else {
 		CreateNewTab(((search_type == KadSearch) ? "!" : "") + params.searchString + " (0)", real_id);
+		if (CSearchListCtrl *page = GetSearchList(real_id)) {
+			page->SetSearchRequest(request);
+		}
 	}
 }
 
